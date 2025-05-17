@@ -1,0 +1,34 @@
+{
+  "name": "rublex/laravel-payments",
+  "description": "A Laravel Package for Rublex payments",
+  "keywords": [
+    "rublex",
+    "payments"
+  ],
+  "license": "MIT",
+  "minimum-stability": "stable",
+  "autoload": {
+    "psr-4": {
+      "Rublex\\payments\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "RublexTeam",
+      "email": "payments@rublex.io"
+    }
+  ],
+  "require": {
+    "guzzlehttp/guzzle": "^7.0.1"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Rublex\\payments\\ServiceProvider"
+      ],
+      "aliases": {
+        "Rublexpayments": "Rublex\\payments\\Facades\\RublexPayments"
+      }
+    }
+  }
+}

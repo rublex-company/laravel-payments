@@ -1,0 +1,26 @@
+<?php
+
+namespace Rublex\payments\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Rublex\payments\Facades\RublexPayments;
+use Rublex\payments\Models\Logger;
+
+/*
+ * This file is part of the Laravel Rublex Payments package.
+ *
+ * (c) Rublex Team <payments@rublex.io>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
+class DashboardController
+{
+    public function __invoke(Request $request)
+    {
+        $logs = Logger::get();
+        $version = RublexPayments::VERSION;
+        return view('rublex_payments::dashboard', compact('logs', 'version'));
+    }
+}
