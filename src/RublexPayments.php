@@ -61,7 +61,7 @@ class RublexPayments
     }
 
     /**
-     * Get api key from NOWPayment config file
+     * Get api key from Rublex Payment config file
      */
     public function setKey(): void
     {
@@ -69,7 +69,7 @@ class RublexPayments
     }
 
     /**
-     * Get Base Url from NOWPayment config file
+     * Get Base Url from Rublex Payment config file
      */
     public function setBaseUrl(): void
     {

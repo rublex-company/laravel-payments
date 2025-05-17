@@ -5,7 +5,9 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /*
- * This file is part of the Laravel NOWPayments package.
+ * This file is part of the Laravel Rublex Payments package.
+ *
+ * (c) Rublex Team <payments@rublex.io>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
