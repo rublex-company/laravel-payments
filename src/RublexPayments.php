@@ -75,11 +75,18 @@ class RublexPayments
 
     /**
      * Get Base Url from Rublex Payment config file
+     * @throws IsNullException
      */
     public function setBaseUrl(): void
     {
-        $this->baseUrl = Config::get('rublex_payments.liveUrl');
-        $this->callbackUrl = Config::get('rublex_payments.callbackUrl', '');
+        $baseUrl = Config::get('rublex_payments.liveUrl');
+        $callbackUrl = Config::get('rublex_payments.callbackUrl');
+
+        $this->baseUrl = $baseUrl;
+
+        if (empty($callbackUrl)) throw new IsNullException('Callback url not set');
+
+        $this->callbackUrl = $callbackUrl;
     }
 
     /**
@@ -161,7 +168,7 @@ class RublexPayments
      */
     public function getCurrencies(?int $page = null): array
     {
-        return $this->setHttpResponse("/currencies", 'GET', compact('page'))->getResponse();
+        return $this->setHttpResponse("currencies", 'GET', compact('page'))->getResponse();
     }
 
     /**
@@ -172,7 +179,7 @@ class RublexPayments
      */
     public function getSupportedCurrencies(?int $page = null, int $per_page = 15): array
     {
-        return $this->setHttpResponse("/currencies/supported", 'GET', compact('page', 'per_page'))->getResponse();
+        return $this->setHttpResponse("currencies/supported", 'GET', compact('page', 'per_page'))->getResponse();
     }
 
 
@@ -191,7 +198,7 @@ class RublexPayments
                 'callback_url' => request()->callback_url ?? null,
             ];
 
-        return $this->setHttpResponse('/pay-request', 'POST', array_filter($data))->getResponse();
+        return $this->setHttpResponse('pay-request', 'POST', array_filter($data))->getResponse();
     }
 
     /**
@@ -201,7 +208,7 @@ class RublexPayments
      */
     public function getInvoicePayment(string $invoiceID): array
     {
-        return $this->setHttpResponse('/invoices', 'GET', ['invoice_number' => $invoiceID])->getResponse();
+        return $this->setHttpResponse('invoices', 'GET', ['invoice_number' => $invoiceID])->getResponse();
     }
 
     /**
@@ -211,7 +218,7 @@ class RublexPayments
      */
     public function getListPayments(array $params = []): array
     {
-        return $this->setHttpResponse('/pay-requests', 'GET', $params)->getResponse();
+        return $this->setHttpResponse('pay-requests', 'GET', $params)->getResponse();
     }
 
     /**
