@@ -13,6 +13,16 @@ use Illuminate\Support\Facades\Facade;
  * file that was distributed with this source code.
  */
 
+/**
+ *
+ * @method static array getInformation()
+ * @method static array getCurrencies(?int $page = null)
+ * @method static array getSupportedCurrencies(?int $page = null, int $per_page = 15)
+ * @method static array createInvoicePayment(array $data = null)
+ * @method static array getInvoicePayment(string $invoiceID)
+ * @method static array getListPayments(array $params = [])
+ *
+ */
 class RublexPayments extends Facade
 {
     final public const VERSION = '1.0.0';
