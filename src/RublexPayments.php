@@ -62,10 +62,15 @@ class RublexPayments
 
     /**
      * Get api key from Rublex Payment config file
+     * @throws IsNullException
      */
     public function setKey(): void
     {
-        $this->apiKey = Config::get('rublex_payments.apiKey');
+        $apiKey = Config::get('rublex_payments.apiKey');
+
+        if (empty($apiKey)) throw new IsNullException('API key not set');
+
+        $this->apiKey = $apiKey;
     }
 
     /**
@@ -74,7 +79,7 @@ class RublexPayments
     public function setBaseUrl(): void
     {
         $this->baseUrl = Config::get('rublex_payments.liveUrl');
-        $this->callbackUrl = Config::get('rublex_payments.callbackUrl');
+        $this->callbackUrl = Config::get('rublex_payments.callbackUrl', '');
     }
 
     /**
