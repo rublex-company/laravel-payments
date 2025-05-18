@@ -24,7 +24,7 @@
   "extra": {
     "laravel": {
       "providers": [
-        "Rublex\\payments\\ServiceProvider"
+        "Rublex\\payments\\RublexPaymentsServiceProvider"
       ],
       "aliases": {
         "Rublexpayments": "Rublex\\payments\\Facades\\RublexPayments"
