@@ -1,6 +1,6 @@
 <?php
 
-namespace Rublex\payments;
+namespace Rublex\Payments;
 
 use Exception;
 

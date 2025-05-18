@@ -1,8 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Rublex\payments\Http\Controllers\DashboardController;
-use Rublex\payments\Http\Middleware\Authorize;
+use Rublex\Payments\Http\Controllers\DashboardController;
+use Rublex\Payments\Http\Middleware\Authorize;
 
 /*
  * This file is part of the Laravel Rublex Payments package.

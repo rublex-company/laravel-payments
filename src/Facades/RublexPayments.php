@@ -1,6 +1,6 @@
 <?php
 
-namespace Rublex\payments\Facades;
+namespace Rublex\Payments\Facades;
 
 use Illuminate\Support\Facades\Facade;
 

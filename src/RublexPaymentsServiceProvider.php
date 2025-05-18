@@ -1,6 +1,6 @@
 <?php
 
-namespace Rublex\payments;
+namespace Rublex\Payments;
 
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Gate;
@@ -34,7 +34,7 @@ class RublexPaymentsServiceProvider extends ServiceProvider
 
         $this->publishes([
             $config => config_path('rublex_payments.php')
-        ]);
+        ], 'config');
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 

@@ -1,10 +1,10 @@
 <?php
 
-namespace Rublex\payments;
+namespace Rublex\Payments;
 
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Config;
-use Rublex\payments\Models\Logger;
+use Rublex\Payments\Models\Logger;
 
 /*
  * This file is part of the Laravel Rublex Payments package.

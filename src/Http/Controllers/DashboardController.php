@@ -1,10 +1,10 @@
 <?php
 
-namespace Rublex\payments\Http\Controllers;
+namespace Rublex\Payments\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Rublex\payments\Facades\RublexPayments;
-use Rublex\payments\Models\Logger;
+use Rublex\Payments\Facades\RublexPayments;
+use Rublex\Payments\Models\Logger;
 
 /*
  * This file is part of the Laravel Rublex Payments package.

@@ -1,6 +1,6 @@
 <?php
 
-namespace Rublex\payments\Http\Middleware;
+namespace Rublex\Payments\Http\Middleware;
 
 use Illuminate\Support\Facades\Gate;
 

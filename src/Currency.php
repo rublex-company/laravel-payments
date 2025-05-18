@@ -1,6 +1,6 @@
 <?php
 
-namespace Rublex\payments;
+namespace Rublex\Payments;
 
 /*
  * This file is part of the Laravel Rublex Payments package.

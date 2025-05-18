@@ -1,6 +1,6 @@
 <?php
 
-namespace Rublex\payments\Models;
+namespace Rublex\Payments\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
