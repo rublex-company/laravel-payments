@@ -17,5 +17,5 @@ Route::group([
     'prefix' => config('rublex_payments.path', 'laravel-rublex-payments'),
     'middleware' => config('rublex_payments.middleware', [Authorize::class]),
 ], function () {
-    Route::get('/', DashboardController::class)->name('rublex.payments.dashboard');
+    Route::get('/', [DashboardController::class, 'index'])->name('rublex.payments.dashboard');
 });

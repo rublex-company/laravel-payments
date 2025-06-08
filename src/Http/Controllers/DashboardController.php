@@ -17,7 +17,7 @@ use Rublex\Payments\Models\Logger;
 
 class DashboardController
 {
-    public function __invoke(Request $request)
+    public function index(Request $request)
     {
         $logs = Logger::get();
         $version = RublexPayments::VERSION;
