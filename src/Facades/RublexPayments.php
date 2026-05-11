@@ -14,26 +14,37 @@ use Illuminate\Support\Facades\Facade;
  */
 
 /**
+ * Invoice creation
+ * @method static \Rublex\Payments\InvoiceBuilder crypto()
+ * @method static \Rublex\Payments\InvoiceBuilder fiat()
+ * @method static array createCryptoInvoice(array $data, bool $payerChoice = false)
+ * @method static array createFiatInvoice(array $data, bool $payerChoice = false)
  *
+ * Terminal & catalog
  * @method static array getInformation()
- * @method static array getCurrencies(?int $page = null)
- * @method static array getSupportedCurrencies(?int $page = null, int $per_page = 15)
- * @method static array createInvoicePayment(array $data = null)
- * @method static array getInvoicePayment(string $invoiceID)
- * @method static array getListPayments(array $params = [])
+ * @method static array getCurrencies(?int $page = null, ?int $perPage = null)
+ * @method static array getSupportedCurrencies(?int $page = null, ?int $perPage = null)
+ * @method static array getFiatGateways()
+ * @method static array getFiatCurrencies()
  *
+ * Invoice lookup
+ * @method static array getCryptoInvoice(string $invoiceNumber)
+ * @method static array listCryptoInvoices(array $params = [])
+ * @method static array listPayRequests(array $params = [])
+ * @method static array getFiatInvoice(string $invoiceNumber)
+ * @method static array listFiatInvoices(array $params = [])
+ *
+ * Payer-facing actions on hosted invoices
+ * @method static array selectCryptoCurrency(string $invoiceNumber, int $currencyId)
+ * @method static array listFiatInvoiceGateways(string $invoiceNumber)
+ * @method static array selectFiatGateway(string $invoiceNumber, array $data)
  */
 class RublexPayments extends Facade
 {
-    final public const VERSION = '1.0.0';
+    final public const VERSION = '1.1.0';
 
-    /**
-     * Get the registered name of the component
-     * @return string
-     */
-    protected static function getFacadeAccessor()
+    protected static function getFacadeAccessor(): string
     {
         return 'laravel-rublex-payments';
     }
-
 }

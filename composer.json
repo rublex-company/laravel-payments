@@ -9,7 +9,7 @@
   "minimum-stability": "stable",
   "autoload": {
     "psr-4": {
-      "Rublex\\payments\\": "src/"
+      "Rublex\\Payments\\": "src/"
     }
   },
   "authors": [
@@ -24,10 +24,10 @@
   "extra": {
     "laravel": {
       "providers": [
-        "Rublex\\payments\\RublexPaymentsServiceProvider"
+        "Rublex\\Payments\\RublexPaymentsServiceProvider"
       ],
       "aliases": {
-        "Rublexpayments": "Rublex\\payments\\Facades\\RublexPayments"
+        "RublexPayments": "Rublex\\Payments\\Facades\\RublexPayments"
       }
     }
   }

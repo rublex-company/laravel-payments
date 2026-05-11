@@ -17,217 +17,249 @@ use Rublex\Payments\Models\Logger;
 
 class RublexPayments
 {
-    final public const VERSION = '1.0.0';
+    final public const VERSION = '1.1.0';
 
-    /**
-     * Issue API Key from your rublex payments Dashboard
-     * @var string
-     */
     protected string $apiKey;
 
-    /**
-     * Instance of http Client
-     * @var Client
-     */
     protected Client $client;
 
-    /**
-     *  Response from requests made to rublex payments
-     * @var mixed
-     */
+    protected Client $publicClient;
+
     protected mixed $response;
 
-    /**
-     * RublexPayments API base Url
-     * @var string
-     */
     protected string $baseUrl;
 
-    /**
-     * Your callback Url. You can set this in your .env, or you can add
-     * it to the $data in the methods that require that option.
-     * @var string
-     */
-    protected string $callbackUrl;
-
+    protected ?string $callbackUrl;
 
     public function __construct()
     {
-        $this->setKey();
-        $this->setBaseUrl();
-        $this->setRequestOptions();
-
-//        $this->checkStatus();
-    }
-
-    /**
-     * Get api key from Rublex Payment config file
-     * @throws IsNullException
-     */
-    public function setKey(): void
-    {
         $apiKey = Config::get('rublex_payments.apiKey');
+        if (empty($apiKey)) {
+            throw new IsNullException('API key not set');
+        }
 
-        if (empty($apiKey)) throw new IsNullException('API key not set');
+        $this->apiKey      = $apiKey;
+        $this->baseUrl     = rtrim(Config::get('rublex_payments.liveUrl'), '/') . '/';
+        $this->callbackUrl = Config::get('rublex_payments.callbackUrl');
 
-        $this->apiKey = $apiKey;
-    }
-
-    /**
-     * Get Base Url from Rublex Payment config file
-     * @throws IsNullException
-     */
-    public function setBaseUrl(): void
-    {
-        $baseUrl = Config::get('rublex_payments.liveUrl');
-        $callbackUrl = Config::get('rublex_payments.callbackUrl');
-
-        $this->baseUrl = $baseUrl;
-
-        if (empty($callbackUrl)) throw new IsNullException('Callback url not set');
-
-        $this->callbackUrl = $callbackUrl;
-    }
-
-    /**
-     * Set options for making the Client request
-     */
-    private function setRequestOptions(): void
-    {
         $this->client = new Client([
-            'base_uri' => $this->baseUrl,
-            'headers' => [
-                'Token' => $this->apiKey,
+            'base_uri'    => $this->baseUrl,
+            'http_errors' => false,
+            'headers'     => [
+                'Token'        => $this->apiKey,
                 'Content-Type' => 'application/json',
-                'Accept' => 'application/json'
-            ]
+                'Accept'       => 'application/json',
+            ],
+        ]);
+
+        $this->publicClient = new Client([
+            'base_uri'    => $this->baseUrl,
+            'http_errors' => false,
+            'headers'     => [
+                'Content-Type' => 'application/json',
+                'Accept'       => 'application/json',
+            ],
         ]);
     }
 
+    // ---------------------------------------------------------------------
+    // Invoice creation (4 entry points)
+    // ---------------------------------------------------------------------
+
+    public function crypto(): InvoiceBuilder
+    {
+        return new InvoiceBuilder($this, InvoiceBuilder::TYPE_CRYPTO);
+    }
+
+    public function fiat(): InvoiceBuilder
+    {
+        return new InvoiceBuilder($this, InvoiceBuilder::TYPE_FIAT);
+    }
+
     /**
-     * @return void
+     * Crypto invoice.
+     *
+     *   $payerChoice = false → POST /terminals/v1/pay-request
+     *     Merchant locks the coin via `currency_id`; payer pays exactly that coin.
+     *
+     *   $payerChoice = true  → POST /terminals/v1/smart-payments
+     *     `currency_id` is the payout coin; payer picks the payment coin at checkout.
+     *
+     * @param array{amount: float|int, currency_id: int, callback_url?: string|null} $data
      * @throws IsNullException
      */
-    public function checkStatus(): void
+    public function createCryptoInvoice(array $data, bool $payerChoice = false): array
     {
-        $this->setRequestOptions();
+        $data['callback_url'] = $data['callback_url'] ?? $this->callbackUrl;
+        $endpoint = $payerChoice ? 'smart-payments' : 'pay-request';
 
-        $status = $this->setHttpResponse("/status", 'GET', [])->getResponse();
+        return $this->request($endpoint, 'POST', $data)->getResponse();
+    }
 
-        if ($status['message'] != "OK") {
-            throw new IsNullException("The API is currently not available");
+    /**
+     * Fiat invoice.
+     *
+     *   $payerChoice = false → POST /terminals/v1/fiat/pay-request-direct
+     *     Merchant locks the gateway via `gateway_id`; payer sent straight to it.
+     *
+     *   $payerChoice = true  → POST /terminals/v1/fiat/pay-request-selection
+     *     `gateway_id` is an optional default; payer picks the gateway on the
+     *     hosted invoice page.
+     *
+     * @param array{
+     *     amount: float|int,
+     *     gateway_id?: int,
+     *     callback_url?: string|null,
+     *     fixed_rate?: bool,
+     *     customer_email?: string,
+     *     customer_first_name?: string,
+     *     customer_last_name?: string,
+     *     customer_mobile?: string,
+     * } $data
+     * @throws IsNullException
+     */
+    public function createFiatInvoice(array $data, bool $payerChoice = false): array
+    {
+        $data['callback_url'] = $data['callback_url'] ?? $this->callbackUrl;
+        $data['invoice_type'] = $payerChoice ? 'gateway_selection' : 'direct_gateway';
+        $endpoint = $payerChoice ? 'fiat/pay-request-selection' : 'fiat/pay-request-direct';
+
+        return $this->request($endpoint, 'POST', $data)->getResponse();
+    }
+
+    // ---------------------------------------------------------------------
+    // Terminal & catalog (read-only)
+    // ---------------------------------------------------------------------
+
+    /** GET /terminals/v1/info */
+    public function getInformation(): array
+    {
+        return $this->request('info', 'GET')->getResponse();
+    }
+
+    /** GET /terminals/v1/currencies */
+    public function getCurrencies(?int $page = null, ?int $perPage = null): array
+    {
+        return $this->request('currencies', 'GET', ['page' => $page, 'per_page' => $perPage])->getResponse();
+    }
+
+    /** GET /terminals/v1/currencies/supported */
+    public function getSupportedCurrencies(?int $page = null, ?int $perPage = null): array
+    {
+        return $this->request('currencies/supported', 'GET', ['page' => $page, 'per_page' => $perPage])->getResponse();
+    }
+
+    /** GET /terminals/v1/fiat/gateways */
+    public function getFiatGateways(): array
+    {
+        return $this->request('fiat/gateways', 'GET')->getResponse();
+    }
+
+    /** GET /terminals/v1/fiat/currencies */
+    public function getFiatCurrencies(): array
+    {
+        return $this->request('fiat/currencies', 'GET')->getResponse();
+    }
+
+    // ---------------------------------------------------------------------
+    // Invoice lookup (read-only)
+    // ---------------------------------------------------------------------
+
+    /** GET /terminals/v1/invoices?invoice_number=... */
+    public function getCryptoInvoice(string $invoiceNumber): array
+    {
+        return $this->request('invoices', 'GET', ['invoice_number' => $invoiceNumber])->getResponse();
+    }
+
+    /** GET /terminals/v1/invoices */
+    public function listCryptoInvoices(array $params = []): array
+    {
+        return $this->request('invoices', 'GET', $params)->getResponse();
+    }
+
+    /** GET /terminals/v1/pay-requests */
+    public function listPayRequests(array $params = []): array
+    {
+        return $this->request('pay-requests', 'GET', $params)->getResponse();
+    }
+
+    /** GET /terminals/v1/fiat/invoices?invoice_number=... */
+    public function getFiatInvoice(string $invoiceNumber): array
+    {
+        return $this->request('fiat/invoices', 'GET', ['invoice_number' => $invoiceNumber])->getResponse();
+    }
+
+    /** GET /terminals/v1/fiat/invoices */
+    public function listFiatInvoices(array $params = []): array
+    {
+        return $this->request('fiat/invoices', 'GET', $params)->getResponse();
+    }
+
+    // ---------------------------------------------------------------------
+    // Payer-facing actions on hosted invoices (no Token header)
+    // ---------------------------------------------------------------------
+
+    /** PUT /terminals/v1/smart-payments/pay-with */
+    public function selectCryptoCurrency(string $invoiceNumber, int $currencyId): array
+    {
+        $url = 'smart-payments/pay-with?invoice_number=' . urlencode($invoiceNumber);
+
+        return $this->request(
+            $url,
+            'PUT',
+            ['invoice_number' => $invoiceNumber, 'currency_id' => $currencyId],
+            public: true,
+        )->getResponse();
+    }
+
+    /** GET /terminals/v1/fiat/invoices/{invoiceNumber}/gateways */
+    public function listFiatInvoiceGateways(string $invoiceNumber): array
+    {
+        return $this->request(
+            'fiat/invoices/' . urlencode($invoiceNumber) . '/gateways',
+            'GET',
+            [],
+            public: true,
+        )->getResponse();
+    }
+
+    /** POST /terminals/v1/fiat/invoices/{invoiceNumber}/select-gateway */
+    public function selectFiatGateway(string $invoiceNumber, array $data): array
+    {
+        return $this->request(
+            'fiat/invoices/' . urlencode($invoiceNumber) . '/select-gateway',
+            'POST',
+            $data,
+            public: true,
+        )->getResponse();
+    }
+
+    // ---------------------------------------------------------------------
+    // Internals
+    // ---------------------------------------------------------------------
+
+    private function request(string $relativeUrl, string $method, array $payload = [], bool $public = false): self
+    {
+        $method = strtoupper($method);
+        $client = $public ? $this->publicClient : $this->client;
+
+        $options = [];
+        if ($method === 'GET') {
+            $options['query'] = array_filter($payload, static fn ($v) => $v !== null);
+        } else {
+            $options['json'] = array_filter($payload, static fn ($v) => $v !== null);
         }
 
-    }
+        $this->response = $client->request($method, $relativeUrl, $options);
 
-    /**
-     * Get the whole response from a get operation
-     * @return array
-     */
-    private function getResponse(): array
-    {
-        return json_decode($this->response->getBody(), true);
-    }
-
-    /**
-     * @param string $relativeUrl
-     * @param string $method
-     * @param array $body
-     * @return RublexPayments
-     * @throws IsNullException
-     */
-    private function setHttpResponse(string $relativeUrl, string $method, array $body = []): RublexPayments
-    {
-        $this->response = $this->client->{strtolower($method)}(
-            $this->baseUrl . $relativeUrl,
-            ["body" => json_encode($body)]
-        );
-
-        if (strlen(stristr($relativeUrl, "?", true)) > 1)
-            $relativeUrl = stristr($relativeUrl, "?", true);
-
-        if ($relativeUrl != '/status')
-            Logger::query()->updateOrCreate(['endpoint' => $relativeUrl])->increment('count');
+        $endpoint = strtok($relativeUrl, '?');
+        Logger::query()->firstOrCreate(['endpoint' => $endpoint])->increment('count');
 
         return $this;
     }
 
-    /**
-     * @return array
-     * @throws IsNullException
-     */
-    public function getInformation(): array
+    private function getResponse(): array
     {
-        return $this->setHttpResponse('info', 'GET')->getResponse();
+        return json_decode((string) $this->response->getBody(), true) ?? [];
     }
-
-    /**
-     * @param ?int $page
-     * @return array
-     * @throws IsNullException
-     */
-    public function getCurrencies(?int $page = null): array
-    {
-        return $this->setHttpResponse("currencies", 'GET', compact('page'))->getResponse();
-    }
-
-    /**
-     * @param ?int $page
-     * @param int $per_page
-     * @return array
-     * @throws IsNullException
-     */
-    public function getSupportedCurrencies(?int $page = null, int $per_page = 15): array
-    {
-        return $this->setHttpResponse("currencies/supported", 'GET', compact('page', 'per_page'))->getResponse();
-    }
-
-
-    /**
-     * @param array|null $data
-     * @return array
-     * @throws IsNullException
-     */
-
-    public function createInvoicePayment(array $data = null): array
-    {
-        if ($data == null)
-            $data = [
-                'amount' => request()->amount ?? 1,
-                'currency_id' => request()->currency_id ?? Currency::BTC,
-                'callback_url' => request()->callback_url ?? null,
-            ];
-
-        return $this->setHttpResponse('pay-request', 'POST', array_filter($data))->getResponse();
-    }
-
-    /**
-     * @param string $invoiceID
-     * @return array
-     * @throws IsNullException
-     */
-    public function getInvoicePayment(string $invoiceID): array
-    {
-        return $this->setHttpResponse('invoices', 'GET', ['invoice_number' => $invoiceID])->getResponse();
-    }
-
-    /**
-     * @param array $params
-     * @return array
-     * @throws IsNullException
-     */
-    public function getListPayments(array $params = []): array
-    {
-        return $this->setHttpResponse('pay-requests', 'GET', $params)->getResponse();
-    }
-
-    /**
-     * Checks IPN received from rublex payments IPN
-     * @return bool
-     */
-    public function verifyIPN(): bool
-    {
-        return config('rublex_payments.ipnSecret') == request()->callback_key;
-    }
-
 }

@@ -27,7 +27,7 @@ return [
      * Rublex Payments Live URL
      *
      */
-    'liveUrl' => env('RUBLEX_PAYMENTS_URL', "https://panel.pay.rublex.io/terminals/v1/"),
+    'liveUrl' => env('RUBLEX_PAYMENTS_URL', "https://api.pay.rublex.io/terminals/v1/"),
 
     /**
      * Your callback URL
