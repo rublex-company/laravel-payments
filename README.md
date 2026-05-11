@@ -191,6 +191,7 @@ PENDING ──► PARTIAL ──► PAID
 
 ## Resources
 
+- [GitHub Repository](https://github.com/rublex-company/laravel-payments)
 - [Merchant Panel](https://panel.pay.rublex.io)
 - [API Documentation](https://github.com/rublexgit/pay)
 - Support: <support@rublex.io>
