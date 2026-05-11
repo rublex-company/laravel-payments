@@ -192,7 +192,7 @@ PENDING ──► PARTIAL ──► PAID
 ## Resources
 
 - [Merchant Panel](https://panel.pay.rublex.io)
-- [API Documentation](https://panel.pay.rublex.io/docs)
+- [API Documentation](https://github.com/rublexgit/pay)
 - Support: <support@rublex.io>
 
 ## License
