@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Facade;
  * Invoice creation
  * @method static \Rublex\Payments\InvoiceBuilder crypto()
  * @method static \Rublex\Payments\InvoiceBuilder fiat()
- * @method static array createCryptoInvoice(array $data, bool $payerChoice = false)
+ * @method static array createCryptoInvoice(array $data)
  * @method static array createFiatInvoice(array $data, bool $payerChoice = false)
  *
  * Terminal & catalog
@@ -35,13 +35,12 @@ use Illuminate\Support\Facades\Facade;
  * @method static array listFiatInvoices(array $params = [])
  *
  * Payer-facing actions on hosted invoices
- * @method static array selectCryptoCurrency(string $invoiceNumber, int $currencyId)
  * @method static array listFiatInvoiceGateways(string $invoiceNumber)
  * @method static array selectFiatGateway(string $invoiceNumber, array $data)
  */
 class RublexPayments extends Facade
 {
-    final public const VERSION = '1.1.0';
+    final public const VERSION = '1.2.0';
 
     protected static function getFacadeAccessor(): string
     {
