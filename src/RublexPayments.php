@@ -17,7 +17,7 @@ use Rublex\Payments\Models\Logger;
 
 class RublexPayments
 {
-    final public const VERSION = '1.2.0';
+    final public const VERSION = '1.2.1';
 
     protected string $apiKey;
 
