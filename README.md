@@ -18,6 +18,114 @@ php artisan vendor:publish --tag=config
 php artisan migrate
 ```
 
+## Build Your Integration With an AI Assistant
+
+**Skip reading the rest of this doc.** Paste the whole `README.md` of this package plus the prompt below into Claude / Cursor / Copilot — the assistant will interview you, then wire the SDK into your Laravel app end to end.
+
+```text
+ROLE
+You are a senior Laravel engineer. Your task is to integrate the Rublex Payment
+Gateway into my Laravel app using the official `rublex/laravel-payments` SDK
+(README provided above) and take me from zero to a production-ready integration.
+
+SOURCE OF TRUTH
+The Laravel SDK README provided above is your single source of truth.
+  - USE the SDK. Do not hand-roll an HTTP client, Guzzle wrapper, or REST calls.
+  - Only call methods that exist in the README (`RublexPayments::crypto()`, `fiat()`,
+    `getSupportedCurrencies()`, `getCryptoInvoice()`, `getFiatInvoice()`, etc.).
+  - Method signatures live in the README's tables — respect them exactly.
+  - Every SDK call returns the `{ status, message, data }` envelope — handle that
+    centrally (a small wrapper service or a thin DTO is fine).
+  - Hosted invoice pages live on https://panel.pay.rublex.io and are baked into the
+    `data.invoice_url` you receive. Redirect customers there as-is — never rewrite it.
+  - If something I ask for is not covered by the SDK or the README is silent on it,
+    STOP and tell me. Never invent endpoints, parameters, or response fields.
+
+CRYPTO INVOICE — NON-NEGOTIABLE PRE-FLIGHT
+Before you call `RublexPayments::crypto()->...->createInvoice()` (or
+`RublexPayments::createCryptoInvoice(...)`) you MUST:
+  1. Call `RublexPayments::getSupportedCurrencies()` first.
+  2. Pick a `currency_id` from THAT response (the terminal-approved list).
+  3. Pass it as the argument to `->pick($currencyId)` or as `currency_id` in the array form.
+Never hard-code numeric currency IDs. The terminal rejects IDs it has not approved
+with HTTP 422 — surface that as a clear error and refetch the list on retry.
+
+RETURN URLS — success_url AND failed_url
+Every invoice flow accepts optional `success_url` / `failed_url` (builder methods
+`->success(...)`, `->failed(...)`, or `->returnTo(...)` for the same URL on both).
+Pass them from the checkout. The redirect is UX only and is NOT proof of payment —
+order state must come from the webhook + a server-side status lookup.
+
+WORK IN TWO PHASES.
+
+──────────────────────────────────────────────
+PHASE 1 — INTERVIEW ME (no code yet)
+Ask me the questions below in ONE grouped message, give a short recommendation
+where you can, then STOP and wait for my answers.
+  1. Payment types: crypto, fiat, or both?
+  2. Flow: explain the trade-offs between
+       - Crypto · Pay Request          (`->crypto()->pick($id)->createInvoice()`)
+       - Fiat · Direct gateway         (`->fiat()->pick($gatewayId)->createInvoice()`)
+       - Fiat · Gateway selection      (`->fiat()->byPayer()->createInvoice()` + payer endpoints)
+     and recommend the best fit.
+  3. Laravel version, PHP version, and any existing Order/Payment models I should
+     plug into.
+  4. Where should the terminal token live? (`.env`, Vault, AWS Secrets Manager, …)
+  5. Which route should be my `callback_url`, and which page should `success_url` /
+     `failed_url` point to? (Same URL for both is fine — recommended.)
+  6. Scope: which pieces do I need — checkout controller that creates an invoice
+     and redirects, webhook controller, Order/Payment Eloquent models + migration,
+     status reconciliation job (queued), an admin/status view, automated tests?
+  7. Greenfield or fitting into code I'll paste?
+  8. Separate staging/production terminals?
+
+──────────────────────────────────────────────
+PHASE 2 — BUILD IT (after I confirm)
+Deliverables, all idiomatic Laravel:
+  a. Service layer — a thin `RublexPaymentsService` (or similar) that wraps the
+     SDK methods I need and centralises envelope parsing + logging. NO direct
+     HTTP calls.
+  b. Invoice creation
+     - Crypto: pull `getSupportedCurrencies()` (cached briefly), pick the right
+       `currency_id`, build the invoice via the SDK with `amount`, `callback`,
+       `success`, `failed`, and persist `invoice_number` on my Order.
+     - Fiat: same pattern with `gateway_id` (or `byPayer()` for selection).
+     - Redirect the customer to `$response['data']['invoice_url']` as-is.
+  c. Webhook controller
+     - `POST` route, responds `200 OK` within 10s.
+     - Treats the callback as UNTRUSTED — re-fetches via `getCryptoInvoice()` /
+       `getFiatInvoice()` before marking the order paid.
+     - Idempotent — the same callback may be retried; check Order status before
+       transitioning.
+     - Maps PENDING / PARTIAL / PAID / EXPIRED / CANCELLED → my order state.
+  d. Return-URL handler
+     - Reads `invoice_number` from the query string, looks up MY order, renders
+       a status page from the local record. Never trust the redirect to confirm
+       payment.
+  e. Config + errors
+     - `config/rublex_payments.php` already published by the SDK — point to the
+       extra env vars I need.
+     - Handles 400, 401, 403, 404, 422, 429, 5xx. Retry with exponential backoff
+       on 429 / 5xx (use a queued job). On 422 from crypto, refetch the supported
+       currencies and report a clear error if my chosen `currency_id` is gone.
+  f. Security
+     - Token only in env / Vault, never in code or front-end.
+     - Log `invoice_number` next to my internal order id.
+     - HTTPS on every URL (callback / success / failed).
+  g. Optional but recommended: a `php artisan rublex:reconcile-invoices` command
+     that lists open invoices and pulls fresh status — guards against missed webhooks.
+
+OUTPUT FORMAT
+  - Show the full file tree first, then each file in its own code block.
+  - Migrations, models, controllers, routes, service, config, tests.
+  - Setup steps + env vars + how to run.
+  - Finally, ask whether I want automated tests (Pest/PHPUnit) or any adjustments.
+
+Begin with PHASE 1 now.
+```
+
+> **Tip:** Once the assistant finishes Phase 2, ask it to add a queued reconciliation job and Pest tests for the webhook — both small, both worth having.
+
 ## Configuration
 
 Add to your `.env`:
