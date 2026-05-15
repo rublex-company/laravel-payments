@@ -33,6 +33,8 @@ Grab the terminal token from your Rublex merchant panel under *Stores → Termin
 
 ## Invoice creation
 
+> **Crypto pre-flight is mandatory.** Before creating a crypto invoice you MUST call `getSupportedCurrencies()` and use one of the returned `id` values as `currency_id`. The terminal rejects IDs it has not approved with HTTP `422`. Do not hard-code IDs.
+
 The package exposes two equivalent ways to create an invoice — pick whichever fits your code style.
 
 ### Fluent builder
@@ -40,24 +42,24 @@ The package exposes two equivalent ways to create an invoice — pick whichever 
 ```php
 use Rublex\Payments\Facades\RublexPayments;
 
-// Crypto — merchant locks the coin
+// 1) Look up which currencies this terminal supports.
+$currencyId = RublexPayments::getSupportedCurrencies()['data'][0]['id'];
+
+// 2) Crypto invoice — merchant locks the coin
 RublexPayments::crypto()
     ->amount(0.5)
-    ->pick(3)                          // currency_id
+    ->pick($currencyId)                          // from /currencies/supported
     ->callback('https://your-site.com/rublex/callback')
-    ->createInvoice();
-
-// Crypto — payer picks the coin (3 = payout coin)
-RublexPayments::crypto()
-    ->amount(50)
-    ->pick(3)
-    ->byPayer()
+    ->returnTo('https://your-site.com/checkout/return')
     ->createInvoice();
 
 // Fiat — merchant locks the gateway (fixed_rate defaults to true)
 RublexPayments::fiat()
     ->amount(19.99)
-    ->pick(4)                          // gateway_id
+    ->pick(4)                                    // gateway_id
+    ->callback('https://your-site.com/rublex/callback')
+    ->success('https://your-site.com/checkout/success')
+    ->failed('https://your-site.com/checkout/cancelled')
     ->customer(email: 'buyer@example.com', firstName: 'Ada')
     ->createInvoice();
 
@@ -66,17 +68,23 @@ RublexPayments::fiat()
     ->amount(19.99)
     ->byPayer()
     ->lockRate(false)
+    ->returnTo('https://your-site.com/checkout/return')
     ->createInvoice();
 ```
+
+> Crypto invoices always lock the coin on the merchant side. The payer-selected crypto flow (Smart Payments) has been retired.
 
 | Method | Purpose |
 |---|---|
 | `crypto()` / `fiat()` | Start a builder chain. |
 | `amount($n)` | Invoice amount. |
 | `pick($id)` | Merchant locks the coin (crypto) or gateway (fiat). |
-| `byPayer()` | Hand the choice over to the payer at checkout. |
+| `byPayer()` | Fiat only — hand the gateway choice over to the payer at checkout. |
 | `callback($url)` | Override the default webhook URL. |
-| `lockRate($bool = true)` | Fiat only — `lockRate()` locks the FX rate, `lockRate(false)` lets it float. Defaults to locked. |
+| `success($url)` | Where the hosted page sends the payer after a successful payment. |
+| `failed($url)` | Where the hosted page sends the payer after a failed/cancelled/expired payment. |
+| `returnTo($url)` | Shortcut: same URL for success and failure (recommended). |
+| `lockRate($bool = true)` | Fiat only — locks or floats the FX rate. Defaults to locked. |
 | `customer(email:, firstName:, lastName:, mobile:)` | Fiat only — pre-fill payer details. |
 | `createInvoice([$extras])` | Send the request; any extra keys are merged in. |
 
@@ -85,17 +93,15 @@ RublexPayments::fiat()
 ```php
 use Rublex\Payments\Facades\RublexPayments;
 
+$currencyId = RublexPayments::getSupportedCurrencies()['data'][0]['id'];
+
 // Crypto — merchant locks the coin
 RublexPayments::createCryptoInvoice([
     'amount'      => 0.5,
-    'currency_id' => 3,
+    'currency_id' => $currencyId,
+    'success_url' => 'https://your-site.com/checkout/return',
+    'failed_url'  => 'https://your-site.com/checkout/return',
 ]);
-
-// Crypto — payer picks the coin
-RublexPayments::createCryptoInvoice([
-    'amount'      => 50,
-    'currency_id' => 3,
-], payerChoice: true);
 
 // Fiat — merchant locks the gateway
 RublexPayments::createFiatInvoice([
@@ -103,12 +109,16 @@ RublexPayments::createFiatInvoice([
     'gateway_id'     => 4,
     'fixed_rate'     => true,
     'customer_email' => 'buyer@example.com',
+    'success_url'    => 'https://your-site.com/checkout/return',
+    'failed_url'     => 'https://your-site.com/checkout/return',
 ]);
 
 // Fiat — payer picks the gateway
 RublexPayments::createFiatInvoice([
-    'amount'     => 19.99,
-    'fixed_rate' => false,
+    'amount'      => 19.99,
+    'fixed_rate'  => false,
+    'success_url' => 'https://your-site.com/checkout/return',
+    'failed_url'  => 'https://your-site.com/checkout/return',
 ], payerChoice: true);
 ```
 
@@ -119,8 +129,8 @@ Each call returns the decoded Rublex envelope:
   "status": "SUCCESS",
   "message": "request.successful",
   "data": {
-    "invoice_number": "X576Kz…",
-    "invoice_url":    "https://panel.pay.rublex.io/invoices/X576Kz…",
+    "invoice_number": "BpXo8T60vIN9D7NCcs66rOnZVipBLUah",
+    "invoice_url":    "https://panel.pay.rublex.io/payment?invoice_number=BpXo8T60vIN9D7NCcs66rOnZVipBLUah",
     "amount":         "0.50000000",
     "paid_amount":    "0.00000000",
     "status":         "PENDING"
@@ -129,6 +139,8 @@ Each call returns the decoded Rublex envelope:
 ```
 
 Redirect the buyer to `data.invoice_url` to finish payment.
+
+> **`success_url` / `failed_url` are UX, not proof of payment.** Always reconcile against the webhook or `getCryptoInvoice()` / `getFiatInvoice()`.
 
 ## Catalog & lookup
 
@@ -148,12 +160,9 @@ RublexPayments::listFiatInvoices([...]);             // GET  /fiat/invoices
 
 ## Payer-facing actions
 
-These three endpoints are reached from the hosted invoice page and authenticate via the `invoice_number` itself — no `Token` header is sent.
+These two endpoints are reached from the hosted invoice page and authenticate via the `invoice_number` itself — no `Token` header is sent.
 
 ```php
-// Crypto Smart-Payments: lock the payment coin
-RublexPayments::selectCryptoCurrency($invoiceNumber, $currencyId);
-
 // Fiat Gateway-Selection: list available gateways
 RublexPayments::listFiatInvoiceGateways($invoiceNumber);
 
@@ -170,7 +179,7 @@ Rublex posts to your `callback_url` on every status change:
 
 ```json
 {
-  "invoice_number": "X576Kz…",
+  "invoice_number": "BpXo8T60vIN9D7NCcs66rOnZVipBLUah",
   "status":         "PAID",
   "amount":         "0.50000000",
   "paid_amount":    "0.50000000",

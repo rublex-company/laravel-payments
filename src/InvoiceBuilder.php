@@ -14,10 +14,16 @@ namespace Rublex\Payments;
  *
  * Entry points : RublexPayments::crypto() · RublexPayments::fiat()
  * Direction    : pick($id) → merchant locks coin/gateway
- *                byPayer() → payer picks it at checkout instead
+ *                byPayer() → fiat only: payer picks gateway on the hosted page
  * Rate (fiat)  : lockRate() / lockRate(false)
  * Customer     : customer(email:, firstName:, lastName:, mobile:)
+ * Return URLs  : success($url) / failed($url) — where the hosted page
+ *                redirects the payer after success / failure
  * Execute      : createInvoice([extras])
+ *
+ * Crypto pre-flight (NON-OPTIONAL): the `currency_id` you pass to pick() MUST
+ * come from a fresh call to RublexPayments::getSupportedCurrencies(). The
+ * terminal rejects any id it has not enabled.
  */
 
 class InvoiceBuilder
@@ -46,8 +52,7 @@ class InvoiceBuilder
 
     /**
      * Pick the coin (crypto) or the gateway (fiat) that this invoice locks to.
-     * Still useful in byPayer() mode for crypto — it then represents the payout
-     * coin — and acts as the default suggestion for fiat.
+     * Acts as the default gateway suggestion for fiat in byPayer() mode.
      */
     public function pick(int $id): self
     {
@@ -57,8 +62,8 @@ class InvoiceBuilder
     }
 
     /**
-     * Let the payer choose the coin (crypto) or gateway (fiat) at checkout
-     * instead of locking it on the merchant side.
+     * Fiat only: hand the gateway choice over to the payer on the hosted page.
+     * Has no effect for crypto invoices — the merchant always picks the coin.
      */
     public function byPayer(): self
     {
@@ -75,6 +80,35 @@ class InvoiceBuilder
     {
         $this->data['callback_url'] = $url;
         return $this;
+    }
+
+    /**
+     * Where the hosted payment page sends the payer after the invoice resolves
+     * as PAID. Optional — when omitted, no Back-to-Merchant button is shown.
+     */
+    public function success(?string $url): self
+    {
+        $this->data['success_url'] = $url;
+        return $this;
+    }
+
+    /**
+     * Where the hosted payment page sends the payer after the invoice resolves
+     * as EXPIRED / CANCELLED / failed. Optional.
+     */
+    public function failed(?string $url): self
+    {
+        $this->data['failed_url'] = $url;
+        return $this;
+    }
+
+    /**
+     * Convenience for the common case where success and failure should land
+     * on the same status page (recommended: render status server-side).
+     */
+    public function returnTo(?string $url): self
+    {
+        return $this->success($url)->failed($url);
     }
 
     /**
@@ -114,7 +148,7 @@ class InvoiceBuilder
         $data = array_merge($this->data, $extras);
 
         return $this->type === self::TYPE_CRYPTO
-            ? $this->client->createCryptoInvoice($data, $this->payerChoice)
+            ? $this->client->createCryptoInvoice($data)
             : $this->client->createFiatInvoice($data, $this->payerChoice);
     }
 }

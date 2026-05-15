@@ -17,7 +17,7 @@ use Rublex\Payments\Models\Logger;
 
 class RublexPayments
 {
-    final public const VERSION = '1.1.0';
+    final public const VERSION = '1.2.0';
 
     protected string $apiKey;
 
@@ -77,23 +77,29 @@ class RublexPayments
     }
 
     /**
-     * Crypto invoice.
+     * Crypto invoice → POST /terminals/v1/pay-request.
      *
-     *   $payerChoice = false → POST /terminals/v1/pay-request
-     *     Merchant locks the coin via `currency_id`; payer pays exactly that coin.
+     * Merchant-fixed currency is the only crypto flow exposed. The payer-
+     * selected currency flow (Smart Payments) has been retired.
      *
-     *   $payerChoice = true  → POST /terminals/v1/smart-payments
-     *     `currency_id` is the payout coin; payer picks the payment coin at checkout.
+     * The `currency_id` MUST come from a prior call to
+     * {@see self::getSupportedCurrencies()} — the terminal rejects any id it
+     * has not enabled with HTTP 422.
      *
-     * @param array{amount: float|int, currency_id: int, callback_url?: string|null} $data
+     * @param array{
+     *     amount:        float|int,
+     *     currency_id:   int,
+     *     callback_url?: string|null,
+     *     success_url?:  string|null,
+     *     failed_url?:   string|null,
+     * } $data
      * @throws IsNullException
      */
-    public function createCryptoInvoice(array $data, bool $payerChoice = false): array
+    public function createCryptoInvoice(array $data): array
     {
         $data['callback_url'] = $data['callback_url'] ?? $this->callbackUrl;
-        $endpoint = $payerChoice ? 'smart-payments' : 'pay-request';
 
-        return $this->request($endpoint, 'POST', $data)->getResponse();
+        return $this->request('pay-request', 'POST', $data)->getResponse();
     }
 
     /**
@@ -110,6 +116,8 @@ class RublexPayments
      *     amount: float|int,
      *     gateway_id?: int,
      *     callback_url?: string|null,
+     *     success_url?: string|null,
+     *     failed_url?: string|null,
      *     fixed_rate?: bool,
      *     customer_email?: string,
      *     customer_first_name?: string,
@@ -198,19 +206,6 @@ class RublexPayments
     // ---------------------------------------------------------------------
     // Payer-facing actions on hosted invoices (no Token header)
     // ---------------------------------------------------------------------
-
-    /** PUT /terminals/v1/smart-payments/pay-with */
-    public function selectCryptoCurrency(string $invoiceNumber, int $currencyId): array
-    {
-        $url = 'smart-payments/pay-with?invoice_number=' . urlencode($invoiceNumber);
-
-        return $this->request(
-            $url,
-            'PUT',
-            ['invoice_number' => $invoiceNumber, 'currency_id' => $currencyId],
-            public: true,
-        )->getResponse();
-    }
 
     /** GET /terminals/v1/fiat/invoices/{invoiceNumber}/gateways */
     public function listFiatInvoiceGateways(string $invoiceNumber): array
